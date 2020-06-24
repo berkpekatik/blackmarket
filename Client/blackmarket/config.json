@@ -1,0 +1,17 @@
+{
+  "driverModel": "",
+  "carModel": "",
+  "timeout": 30000,
+  "coords": [
+    {
+      "X": 0,
+      "Y": 0,
+      "Z": 0
+    }
+  ],
+  "SpawnCoords": {
+    "X": 0,
+    "Y": 0,
+    "Z": 0
+  }
+}
