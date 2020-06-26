@@ -16,11 +16,16 @@ namespace Client
     {
         private static ConfigModel config = new ConfigModel();
         private static bool pause = false;
+        private static bool pressed = false;
         private static int driver;
         private static int vehicle;
         private static int currentMis;
         public Main()
         {
+            EventHandlers["blackmarket:startjob"] += new Action(Start);
+            EventHandlers["blackmarket:gotodriver"] += new Action(GotoDriver);
+            RegisterCommand("startjob", new Action(sJob), false);
+            RegisterCommand("gotodriver", new Action(gDriver), false);
             var data = LoadResourceFile(GetCurrentResourceName(), "config.json");
             try
             {
@@ -30,22 +35,50 @@ namespace Client
             {
                 Debug.WriteLine("Config File cannot read!");
             }
-            Start();
-            Tick += OnTick;
-            Tick += OnMarketTick;
+            
+        }
+
+        private void gDriver()
+        {
+            TriggerServerEvent("blackmarket:gotodriverserver");
+           
+        }
+
+        private void sJob()
+        {
+            TriggerServerEvent("blackmarket:startjobserver");
+        }
+
+        private void GotoDriver()
+        {
+            Game.PlayerPed.SetIntoVehicle(new Vehicle(vehicle), VehicleSeat.Passenger);
         }
 
         private async Task OnMarketTick()
         {
             var trunkPos = GetWorldPositionOfEntityBone(vehicle, GetEntityBoneIndexByName(vehicle, "taillight_l"));
+            if (!pause && Game.PlayerPed.Position.DistanceToSquared2D(trunkPos) > 1.8f && pressed)
+            {
+                pressed = false;
+            }
             if (pause && Game.PlayerPed.Position.DistanceToSquared2D(trunkPos) < 1.8f && IsControlJustPressed(0, 46))
             {
                 TriggerEvent("esx_blackmarket:openMenu", 1);
+                pressed = true;
+            }
+            else if (pause && Game.PlayerPed.Position.DistanceToSquared2D(trunkPos) < 1.8f && !pressed)
+            {
+                SetTextComponentFormat("STRING");
+                AddTextComponentString(config.Msg);
+                DisplayHelpTextFromStringLabel(0, false, true, -1);
             }
         }
 
         private async void Start()
         {
+            await Delay(500);
+            Tick += OnTick;
+            Tick += OnMarketTick;
             await Delay(5000);
             await LoadModel((uint)GetHashKey(config.CarModel));
             var veh = await World.CreateVehicle(config.CarModel, config.SpawnCoords);
@@ -79,7 +112,7 @@ namespace Client
 
         private async Task OnTick()
         {
-            if (currentMis > config.Coords.Count-1)
+            if (currentMis > config.Coords.Count - 1)
             {
                 currentMis = 0;
             }
@@ -117,7 +150,7 @@ namespace Client
                 pause = false;
                 await Delay(150);
                 currentMis++;
-                if (currentMis > config.Coords.Count-1)
+                if (currentMis > config.Coords.Count - 1)
                 {
                     currentMis = 0;
                 }

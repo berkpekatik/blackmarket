@@ -12,6 +12,7 @@ namespace Client
         public string CarModel { get; set; }
         public string DriverModel { get; set; }
         public int Timeout { get; set; }
+        public string Msg { get; set; }
         public List<Vector3> Coords { get; set; }
         public Vector3 SpawnCoords { get; set; }
     }

@@ -1,6 +1,7 @@
 {
   "driverModel": "",
   "carModel": "",
+  "Msg": "Yasadýþý silah ve mühimmat sipariþi için ~INPUT_CONTEXT~ tuþuna basýn.",
   "timeout": 30000,
   "coords": [
     {
