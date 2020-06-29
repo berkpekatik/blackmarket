@@ -20,37 +20,32 @@ namespace Client
         private static int driver;
         private static int vehicle;
         private static int currentMis;
+        private static dynamic ESX;
         public Main()
         {
-            EventHandlers["blackmarket:startjob"] += new Action(Start);
-            EventHandlers["blackmarket:gotodriver"] += new Action(GotoDriver);
-            RegisterCommand("startjob", new Action(sJob), false);
-            RegisterCommand("gotodriver", new Action(gDriver), false);
+            RegisterCommand("startjob", new Action(Start), false);
+            RegisterCommand("gotodriver", new Action(GotoDriver), false);
             var data = LoadResourceFile(GetCurrentResourceName(), "config.json");
             try
             {
                 config = JsonConvert.DeserializeObject<ConfigModel>(data);
             }
-            catch
+            catch(Exception e)
             {
                 Debug.WriteLine("Config File cannot read!");
+                Debug.WriteLine(e.Message);
             }
-            
-        }
-
-        private void gDriver()
-        {
-            TriggerServerEvent("blackmarket:gotodriverserver");
-           
-        }
-
-        private void sJob()
-        {
-            TriggerServerEvent("blackmarket:startjobserver");
+            Tick += esxTick;
         }
 
         private void GotoDriver()
         {
+            string id = ESX.GetPlayerData().identifier.ToString();
+            if (!config.Identifiers.Where(x => x == id).Any())
+            {
+                Debug.WriteLine("Yetkin yok!");
+                return;
+            }
             Game.PlayerPed.SetIntoVehicle(new Vehicle(vehicle), VehicleSeat.Passenger);
         }
 
@@ -74,8 +69,27 @@ namespace Client
             }
         }
 
+        
+
+        private async Task esxTick()
+        {
+            while (ESX == null)
+            {
+                TriggerEvent("esx:getSharedObject", new object[] { new Action<dynamic>(esx => {
+                    ESX = esx;
+                })});
+                await Delay(1000);
+            }
+        }
+
         private async void Start()
         {
+            string id = ESX.GetPlayerData().identifier.ToString();
+            if (!config.Identifiers.Where(x => x == id).Any())
+            {
+                Debug.WriteLine("Yetkin yok!");
+                return;
+            }
             await Delay(500);
             Tick += OnTick;
             Tick += OnMarketTick;

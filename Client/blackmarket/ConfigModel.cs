@@ -9,6 +9,7 @@ namespace Client
 {
     public class ConfigModel
     {
+        public string[] Identifiers { get; set; }
         public string CarModel { get; set; }
         public string DriverModel { get; set; }
         public int Timeout { get; set; }
