@@ -15,37 +15,84 @@ namespace Client
     public class Main : BaseScript
     {
         private static ConfigModel config = new ConfigModel();
+        private static CurrentMission mission = new CurrentMission();
         private static bool pause = false;
         private static bool pressed = false;
         private static int driver;
         private static int vehicle;
         private static int currentMis;
         private static dynamic ESX;
+
         public Main()
         {
             RegisterCommand("startjob", new Action(Start), false);
             RegisterCommand("gotodriver", new Action(GotoDriver), false);
+            RegisterCommand("resetjob", new Action(ResetJob), false);
+            EventHandlers["blackmarket:addMissionFile"] += new Action<string>(SaveMission);
             var data = LoadResourceFile(GetCurrentResourceName(), "config.json");
             try
             {
                 config = JsonConvert.DeserializeObject<ConfigModel>(data);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
-                Debug.WriteLine("Config File cannot read!");
-                Debug.WriteLine(e.Message);
+                ChatSendMessage("BLACKMARKET ", "Config File cannot read!");
+                ChatSendMessage("BLACKMARKET ", e.Message);
             }
             Tick += esxTick;
         }
 
+        private void SaveMission(string data)
+        {
+            try
+            {
+                mission = JsonConvert.DeserializeObject<CurrentMission>(data);
+            }
+            catch
+            {
+               
+            }
+        }
+
+        private void ResetJob()
+        {
+            string id = ESX.GetPlayerData().identifier.ToString();
+            if (!config.Identifiers.Where(x => x == id).Any())
+            {
+                ChatSendMessage("BLACKMARKET ", "Yetkin yok!");
+                return;
+            }
+            TriggerServerEvent("blackmarket:restartPayload");
+            mission = new CurrentMission();
+            pause = false;
+            pressed = false;
+            DeleteEntity(ref driver);
+            DeleteEntity(ref vehicle);
+            currentMis = 0;
+            ChatSendMessage("BLACKMARKET ", "Ayarlar sıfırlandı ve Eski görev iptal edildi!");
+            Delay(500);
+        }
         private void GotoDriver()
         {
             string id = ESX.GetPlayerData().identifier.ToString();
             if (!config.Identifiers.Where(x => x == id).Any())
             {
-                Debug.WriteLine("Yetkin yok!");
+                ChatSendMessage("BLACKMARKET ", "Yetkin yok!");
                 return;
             }
+            TriggerServerEvent("blackmarket:readPayload");
+            ChatSendMessage("BLACKMARKET ", "Sürücünün konumu aranıyor...");
+            Delay(1500);
+            if (mission.Driver == 0)
+            {
+                ChatSendMessage("BLACKMARKET ", "Henüz oluşturulmuş bir görev yok!");
+                return;
+            }
+            ChatSendMessage("BLACKMARKET ", "Sizi sürücünün yanına gönderiyorum...");
+            Delay(1500);
+            vehicle = mission.Vehicle;
+            driver = mission.Driver;
+            
             Game.PlayerPed.SetIntoVehicle(new Vehicle(vehicle), VehicleSeat.Passenger);
         }
 
@@ -69,7 +116,7 @@ namespace Client
             }
         }
 
-        
+
 
         private async Task esxTick()
         {
@@ -87,9 +134,14 @@ namespace Client
             string id = ESX.GetPlayerData().identifier.ToString();
             if (!config.Identifiers.Where(x => x == id).Any())
             {
-                Debug.WriteLine("Yetkin yok!");
+                ChatSendMessage("BLACKMARKET ", "Yetkin yok!");
                 return;
             }
+            if (mission.Driver != 0)
+            {
+                ResetJob();
+            }
+            ChatSendMessage("BLACKMARKET ", "Görev oluşturuluyor, lütfen sabırlı olun.");
             await Delay(500);
             Tick += OnTick;
             Tick += OnMarketTick;
@@ -98,7 +150,10 @@ namespace Client
             var veh = await World.CreateVehicle(config.CarModel, config.SpawnCoords);
             await LoadModel((uint)GetHashKey(config.DriverModel));
             var vehDriver = await World.CreatePed(config.DriverModel, config.SpawnCoords);
+            TriggerServerEvent("blackmarket:savePayload", veh.Handle, vehDriver.Handle, currentMis);
             vehDriver.BlockPermanentEvents = true;
+            SetEntityInvincible(veh.Handle, true);
+            SetEntityInvincible(vehDriver.Handle, true);
             driver = vehDriver.Handle;
             vehicle = veh.Handle;
             veh.LockStatus = VehicleLockStatus.LockedForPlayer;
@@ -107,18 +162,22 @@ namespace Client
             vehDriver.Task.WarpIntoVehicle(veh, VehicleSeat.Driver);
             await Delay(50);
             vehDriver.Task.DriveTo(veh, config.Coords[currentMis], 2f, 15f, 317);
+            ChatSendMessage("BLACKMARKET ", "Yapılan ayarlar kayıt ediliyor.");
+            await Delay(3500);
+            ChatSendMessage("BLACKMARKET ", $"Araç oluşuturuldu {config.Coords[currentMis]}");
+            TriggerServerEvent("blackmarket:readPayload");
         }
         public static async Task<bool> LoadModel(uint model)
         {
             if (!IsModelInCdimage(model))
             {
-                //Debug.WriteLine($"Invalid model {model}");
+                //ChatSendMessage("BLACKMARKET ",$"Invalid model {model}");
                 return false;
             }
             RequestModel(model);
             while (!HasModelLoaded(model))
             {
-                //Debug.WriteLine($"Waiting for model {model}");
+                //ChatSendMessage("BLACKMARKET ",$"Waiting for model {model}");
                 await Delay(100);
             }
             return true;
@@ -184,6 +243,16 @@ namespace Client
         {
             SetEntityInvincible(vehicle, true);
             SetEntityInvincible(driver, true);
+        }
+
+        private void ChatSendMessage(string title, string text)
+        {
+            TriggerEvent("chat:addMessage", new
+            {
+                color = new[] { 255, 0, 0 },
+                multiline = true,
+                args = new[] { title, text }
+            });
         }
     }
 }
